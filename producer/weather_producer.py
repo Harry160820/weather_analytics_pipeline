@@ -105,7 +105,7 @@ class WeatherProducer:
         logging.info(f"Sent weather data for {data['city']} at {data['timestamp']}")
 
     def run(self):
-        logging.info("starting weather producer..., interval={self.sleep_sec}s")
+        logging.info(f"starting weather producer..., interval={self.sleep_sec}s")
         while True:
             for city, lat, lon in self.cities:
                 w = self.fetch(city, lat, lon)
