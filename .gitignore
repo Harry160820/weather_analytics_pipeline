@@ -1,3 +1,4 @@
 .env
 *.env
 azure/config.env
+hadoop.env
