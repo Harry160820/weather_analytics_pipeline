@@ -1,9 +1,9 @@
 CREATE DATABASE IF NOT EXISTS weather_db;
 USE weather_db;
 
-CREATE EXTERNAL TABLE weather_raw (
+CREATE EXTERNAL TABLE IF NOT EXISTS weather_raw (
     city STRING,
-    timestamp STRING,
+    `timestamp` STRING,
     temp DOUBLE,
     feels_like DOUBLE,
     humidity INT,
@@ -16,4 +16,4 @@ CREATE EXTERNAL TABLE weather_raw (
 ROW FORMAT DELIMITED
 FIELDS TERMINATED BY ','
 STORED AS TEXTFILE
-LOCATION '/user/weather/raw/';
+LOCATION '/data/weather';
