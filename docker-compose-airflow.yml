@@ -1,85 +1,123 @@
 services:
+
   postgres:
     image: postgres:14
     container_name: airflow-postgres
+
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+
     volumes:
       - postgres-airflow:/var/lib/postgresql/data
+
     networks:
       - weather-net
+
 
   airflow-init:
-    image: apache/airflow:2.8.0-python3.11
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+
     container_name: airflow-init
-    entrypoint: /bin/bash
-    command: -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
-    environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+
     depends_on:
       - postgres
+
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__FERNET_KEY: ""
+
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create
+      --username admin
+      --password admin
+      --firstname Admin
+      --lastname User
+      --role Admin
+      --email admin@example.com || true
+      "
+
     networks:
       - weather-net
+
+
 
   airflow-webserver:
-    image: apache/airflow:2.8.0-python3.11
+
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+
     container_name: airflow-webserver
+
     depends_on:
       - postgres
       - airflow-init
+
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__WEBSERVER__SECRET_KEY: "strong-secret-key"
-      AIRFLOW_CONN_HIVE_DEFAULT: "hive://hive-standalone:10000/default"
-      _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-apache-hive pyhive thrift"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "secret-key"
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/logs:/opt/airflow/logs
       - ./producer:/opt/airflow/producer
       - ./consumer:/opt/airflow/consumer
-      - ./hive-init:/opt/airflow/hive-init
-      - ./hive-data:/data
+      - ./hive:/opt/airflow/hive-init
+
     ports:
-      - "8080:8080"
-    command: webserver
-    healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      - "0.0.0.0:8080:8080"
+
+    command:
+      webserver
+
     networks:
       - weather-net
 
+
+
   airflow-scheduler:
-    image: apache/airflow:2.8.0-python3.11
+
+    build:
+      context: .
+      dockerfile: docker/airflow/Dockerfile
+
     container_name: airflow-scheduler
+
     depends_on:
-      - postgres
-      - airflow-init
+      - airflow-webserver
+
     environment:
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW_CONN_HIVE_DEFAULT: "hive://hive-standalone:10000/default"
-      _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-apache-hive pyhive thrift"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+
     volumes:
       - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/plugins:/opt/airflow/plugins
+      - ./airflow/logs:/opt/airflow/logs
       - ./producer:/opt/airflow/producer
       - ./consumer:/opt/airflow/consumer
-      - ./hive-init:/opt/airflow/hive-init
-      - ./hive-data:/data
-    command: scheduler
+      - ./hive:/opt/airflow/hive-init
+
+    command:
+      scheduler
+
     networks:
       - weather-net
+
+
 
 volumes:
   postgres-airflow:
 
+
 networks:
   weather-net:
-    external: true
+    driver: bridge
