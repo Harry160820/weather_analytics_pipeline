@@ -1,123 +1,100 @@
 services:
-
   postgres:
     image: postgres:14
     container_name: airflow-postgres
-
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
-
+      TZ: Asia/Kolkata
     volumes:
       - postgres-airflow:/var/lib/postgresql/data
-
     networks:
       - weather-net
-
 
   airflow-init:
-    build:
-      context: .
-      dockerfile: docker/airflow/Dockerfile
-
+    image: apache/airflow:2.8.0-python3.11
     container_name: airflow-init
-
-    depends_on:
-      - postgres
-
+    entrypoint: /bin/bash
+    command: -c "airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com"
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-      AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__CORE__FERNET_KEY: ""
-
-    command: >
-      bash -c "
-      airflow db migrate &&
-      airflow users create
-      --username admin
-      --password admin
-      --firstname Admin
-      --lastname User
-      --role Admin
-      --email admin@example.com || true
-      "
-
+      TZ: Asia/Kolkata
+    depends_on:
+      - postgres
     networks:
       - weather-net
 
-
-
   airflow-webserver:
-
     build:
       context: .
       dockerfile: docker/airflow/Dockerfile
-
     container_name: airflow-webserver
-
     depends_on:
       - postgres
       - airflow-init
-
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__WEBSERVER__SECRET_KEY: "secret-key"
-
+      AIRFLOW__WEBSERVER__SECRET_KEY: "strong-secret-key"
+      EVENTHUB_CONNECTION_STRING: "${EVENTHUB_CONNECTION_STRING}"
+      EVENTHUB_NAME: "${EVENTHUB_NAME}"
+      TZ: Asia/Kolkata
+      POSTGRES_HOST: "weather-pipeline-pg.postgres.database.azure.com"
+      POSTGRES_USER: "weatheradmin"
+      POSTGRES_PASSWORD: "Weather@2024!"
+      POSTGRES_DB: "weather_db"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
       - ./producer:/opt/airflow/producer
       - ./consumer:/opt/airflow/consumer
-      - ./hive:/opt/airflow/hive-init
-
+      - ./hive-data:/data
     ports:
-      - "0.0.0.0:8080:8080"
-
-    command:
-      webserver
-
+      - "8081:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
     networks:
       - weather-net
 
-
-
   airflow-scheduler:
-
     build:
       context: .
       dockerfile: docker/airflow/Dockerfile
-
     container_name: airflow-scheduler
-
     depends_on:
-      - airflow-webserver
-
+      - postgres
+      - airflow-init
     environment:
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__SECRET_KEY: "strong-secret-key"
+      EVENTHUB_CONNECTION_STRING: "${EVENTHUB_CONNECTION_STRING}"
+      EVENTHUB_NAME: "${EVENTHUB_NAME}"
+      TZ: Asia/Kolkata
+      POSTGRES_HOST: "weather-pipeline-pg.postgres.database.azure.com"
+      POSTGRES_USER: "weatheradmin"
+      POSTGRES_PASSWORD: "Weather@2024!"
+      POSTGRES_DB: "weather_db"
     volumes:
       - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
       - ./producer:/opt/airflow/producer
       - ./consumer:/opt/airflow/consumer
-      - ./hive:/opt/airflow/hive-init
-
-    command:
-      scheduler
-
+      - ./hive-data:/data
+    command: scheduler
     networks:
       - weather-net
-
-
 
 volumes:
   postgres-airflow:
 
-
 networks:
   weather-net:
-    driver: bridge
+    external: true
