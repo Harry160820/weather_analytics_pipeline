@@ -17,11 +17,9 @@ cities = [
 ]
 
 def fetch(city, lat, lon):
-    """Fetch current weather from Open‑Meteo. Returns None on failure."""
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
-        "latitude": lat,
-        "longitude": lon,
+        "latitude": lat, "longitude": lon,
         "current_weather": True,
         "hourly": "relativehumidity_2m,pressure_msl,cloudcover",
         "timezone": "UTC"
@@ -31,20 +29,16 @@ def fetch(city, lat, lon):
         r.raise_for_status()
         data = r.json()
         cw = data["current_weather"]
-        # current_weather has temperature, windspeed, weathercode, time (ISO, could be :00 or :15 etc.)
-        # The hourly array always has times on the hour, so we find the closest hour
         hourly = data.get("hourly", {})
         humidity = pressure = clouds = None
         if "time" in hourly:
-            # Use the hour that matches the hour of cw's time (ignore minutes)
-            cw_hour = cw["time"][:13]  # e.g., "2026-06-21T18"
+            cw_hour = cw["time"][:13]  # match hour prefix
             for i, t in enumerate(hourly["time"]):
                 if t.startswith(cw_hour):
                     humidity = hourly["relativehumidity_2m"][i]
                     pressure = hourly["pressure_msl"][i]
                     clouds = hourly["cloudcover"][i]
                     break
-
         return {
             "city": city,
             "timestamp": datetime.utcnow().isoformat(),
