@@ -79,30 +79,29 @@ with DAG(
         env={'EVENTHUB_CONNECTION_STRING': EH_CONN_STR, 'EVENTHUB_NAME': 'weather-raw'},
     )
 
-        run_etl = BashOperator(
+    run_etl = BashOperator(
         task_id='run_hive_etl',
         bash_command="""
             docker exec hive-standalone /opt/hive/bin/beeline \
                 -u jdbc:hive2://localhost:10000/default \
-                -e "
+                -e '
                     USE weather_db;
-
                     CREATE EXTERNAL TABLE IF NOT EXISTS weather_raw (
                         city STRING,
-                        \`timestamp\` STRING,
+                        `timestamp` STRING,
                         temp DOUBLE,
                         feels_like DOUBLE,
                         humidity INT,
                         pressure DOUBLE,
                         weather STRING,
-                        \`desc\` STRING,
+                        `desc` STRING,
                         wind DOUBLE,
                         clouds INT
                     )
                     ROW FORMAT DELIMITED
-                    FIELDS TERMINATED BY ','
+                    FIELDS TERMINATED BY ","
                     STORED AS TEXTFILE
-                    LOCATION '/data/weather';
+                    LOCATION "/data/weather";
 
                     CREATE TABLE IF NOT EXISTS daily_summary (
                         city STRING,
@@ -114,18 +113,18 @@ with DAG(
                         avg_wind DOUBLE
                     )
                     STORED AS TEXTFILE
-                    LOCATION '/data/daily_summary';
+                    LOCATION "/data/daily_summary";
 
                     INSERT OVERWRITE TABLE daily_summary
                     SELECT
                         city,
-                        date_format(\`timestamp\`, 'yyyy-MM-dd') as dt,
+                        date_format(`timestamp`, "yyyy-MM-dd") as dt,
                         AVG(temp), MAX(temp), MIN(temp),
                         AVG(humidity), AVG(wind)
                     FROM weather_raw
-                    WHERE \`timestamp\` IS NOT NULL
-                    GROUP BY city, date_format(\`timestamp\`, 'yyyy-MM-dd');
-                "
+                    WHERE `timestamp` IS NOT NULL
+                    GROUP BY city, date_format(`timestamp`, "yyyy-MM-dd");
+                '
         """,
     )
 
