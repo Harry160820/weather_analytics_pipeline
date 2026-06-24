@@ -151,7 +151,7 @@ Install:
 
 
 ```bash
-git clone https://github.com/YOUR_USER/weather-pipeline.git
+git clone https://github.com/Harry160820/weather_analytics_pipeline.git
 
 cd weather-pipeline
 ```
